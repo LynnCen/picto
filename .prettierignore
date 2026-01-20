@@ -1,0 +1,8 @@
+node_modules
+dist
+.turbo
+.changeset
+.pnpm-store
+pnpm-lock.yaml
+*.md
+CHANGELOG.md
