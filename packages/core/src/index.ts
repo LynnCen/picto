@@ -21,6 +21,14 @@ export * from './logger'
 
 // Export sources
 export * from './sources/figma'
+export * from './sources/iconfont'
+export * from './sources/local'
+
+// Export processors
+export * from './processors'
+
+// Export cache
+export * from './cache'
 
 // Export generators
 export * from './generators/react'
