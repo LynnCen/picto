@@ -2,19 +2,34 @@
  * Picto Core Library
  *
  * This is the core library that provides the main functionality for Picto.
- * It includes the engine, plugin system, and utility functions.
+ * It includes the engine, plugin system, configuration, and utility functions.
  */
 
-export const version = '0.0.1'
+export const version = '0.5.0'
+
+// Export configuration
+export * from './config'
+
+// Export engine
+export * from './engine'
+
+// Export plugin manager
+export * from './plugins/manager'
+
+// Export logger
+export * from './logger'
+
+// Export sources
+export * from './sources/figma'
+
+// Export generators
+export * from './generators/react'
+export * from './generators/vue'
+export * from './generators/svg'
+
+// Export utilities
+export * from './generators/utils/naming'
+export * from './generators/utils/formatter'
 
 // Note: Types are exported from @picto/types package directly
 // Use: import type { IconMetadata, Config } from '@picto/types'
-
-// Placeholder exports - will be implemented in Phase 1
-export function createEngine(): void {
-  throw new Error('Engine not yet implemented - Phase 1 Sprint 1-2')
-}
-
-export function createPlugin(): void {
-  throw new Error('Plugin system not yet implemented - Phase 1 Sprint 1-2')
-}

@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
-import { cli } from '../dist/index.js'
-
-cli()
+// Import and run the CLI
+import('../dist/index.js')
+  .then(({ cli }) => cli())
+  .catch(error => {
+    console.error('Failed to start Picto CLI:', error)
+    process.exit(1)
+  })
