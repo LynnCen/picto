@@ -59,6 +59,7 @@ export class FigmaClient {
 
   /**
    * Export images (SVG) from Figma
+   * Automatically handles batching for large requests to avoid 413 errors
    */
   async getImages(
     fileKey: string,
@@ -73,6 +74,69 @@ export class FigmaClient {
 
     this.logger?.debug(`Exporting ${nodeIds.length} image(s) from ${fileKey}`)
 
+    // Batch size to avoid URL too long error (413)
+    const BATCH_SIZE = 100
+
+    // If nodeIds is small enough, make a single request
+    if (nodeIds.length <= BATCH_SIZE) {
+      return await this.getImagesBatch(fileKey, nodeIds, { format, scale })
+    }
+
+    // Otherwise, split into batches
+    this.logger?.info(`Splitting ${nodeIds.length} icons into batches of ${BATCH_SIZE}...`)
+    const batches: string[][] = []
+    for (let i = 0; i < nodeIds.length; i += BATCH_SIZE) {
+      batches.push(nodeIds.slice(i, i + BATCH_SIZE))
+    }
+
+    // Process all batches
+    const allImages: Record<string, string> = {}
+    let hasError = false
+    let errorMessage = ''
+
+    for (let i = 0; i < batches.length; i++) {
+      const batch = batches[i]
+      if (!batch) continue
+
+      this.logger?.info(`Processing batch ${i + 1}/${batches.length} (${batch.length} icons)...`)
+
+      try {
+        const response = await this.getImagesBatch(fileKey, batch, { format, scale })
+
+        if (response.err) {
+          hasError = true
+          errorMessage = response.err
+          this.logger?.error(`Batch ${i + 1} failed: ${response.err}`)
+          continue
+        }
+
+        // Merge results
+        Object.assign(allImages, response.images)
+        this.logger?.success(`Batch ${i + 1}/${batches.length} completed (${Object.keys(response.images).length} icons)`)
+      } catch (error) {
+        hasError = true
+        errorMessage = error instanceof Error ? error.message : 'Unknown error'
+        this.logger?.error(`Batch ${i + 1} failed: ${errorMessage}`)
+      }
+    }
+
+    this.logger?.success(`Total: exported ${Object.keys(allImages).length} image(s)`)
+
+    return {
+      err: hasError ? errorMessage : null,
+      images: allImages,
+    }
+  }
+
+  /**
+   * Export a single batch of images
+   */
+  private async getImagesBatch(
+    fileKey: string,
+    nodeIds: string[],
+    options: { format?: 'svg' | 'png' | 'jpg'; scale?: number } = {}
+  ): Promise<FigmaImageResponse> {
+    const { format = 'svg', scale = 1 } = options
     const ids = nodeIds.join(',')
     const params = new URLSearchParams({
       ids,
@@ -85,15 +149,10 @@ export class FigmaClient {
         `/images/${fileKey}?${params.toString()}`
       )
 
-      if (response.err) {
-        throw new Error(`Figma API error: ${response.err}`)
-      }
-
-      this.logger?.success(`Images exported successfully`)
       return response
     } catch (error) {
-      this.logger?.error(`Failed to export images from file: ${fileKey}`)
-      throw this.handleError(error, 'getImages')
+      this.logger?.error(`Failed to export batch from file: ${fileKey}`)
+      throw this.handleError(error, 'getImagesBatch')
     }
   }
 
@@ -102,10 +161,17 @@ export class FigmaClient {
    */
   async downloadSVG(url: string): Promise<string> {
     try {
-      const svg = await ofetch<string>(url, {
+      const svg = await ofetch(url, {
         timeout: this.timeout,
         retry: this.retries,
+        responseType: 'text', // Force text response to get SVG as string
       })
+
+      // Ensure we return a string
+      if (typeof svg !== 'string') {
+        throw new Error(`Expected SVG content to be string, got ${typeof svg}`)
+      }
+
       return svg
     } catch (error) {
       this.logger?.error(`Failed to download SVG from: ${url}`)

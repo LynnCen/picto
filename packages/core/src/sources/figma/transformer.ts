@@ -33,8 +33,18 @@ export class FigmaTransformer {
         continue
       }
 
-      const metadata = this.transformIcon(icon, svg)
-      result.push(metadata)
+      // Validate SVG content is a string
+      if (typeof svg !== 'string') {
+        this.logger?.warn(`Invalid SVG content type for icon: ${icon.name} (expected string, got ${typeof svg})`)
+        continue
+      }
+
+      try {
+        const metadata = this.transformIcon(icon, svg)
+        result.push(metadata)
+      } catch (error) {
+        this.logger?.error(`Failed to transform icon ${icon.name}: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      }
     }
 
     this.logger?.success(`Transformed ${result.length} icon(s)`)
@@ -90,6 +100,9 @@ export class FigmaTransformer {
    * Extract viewBox attribute from SVG
    */
   private extractViewBox(svg: string): string | undefined {
+    if (!svg || typeof svg !== 'string') {
+      return undefined
+    }
     const match = svg.match(/viewBox=["']([^"']+)["']/)
     return match ? match[1] : undefined
   }
