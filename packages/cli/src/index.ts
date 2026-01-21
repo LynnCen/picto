@@ -55,10 +55,10 @@ export function cli(): void {
   // dev command (watch mode)
   program
     .command('dev', 'Start development mode with file watching')
-    .option('--port <port>', 'Dev server port', { default: 3000 })
-    .action(async (options: { port?: number }) => {
+    .option('--cwd <dir>', 'Working directory')
+    .action(async (options: { config?: string; cwd?: string }) => {
       const { devCommand } = await import('./commands/dev')
-      devCommand(options)
+      await devCommand(options)
     })
 
   // Parse CLI arguments
