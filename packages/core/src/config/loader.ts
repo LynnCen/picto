@@ -5,7 +5,8 @@
 
 import { readFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
-import { resolve, extname } from 'node:path'
+import { resolve, extname, dirname } from 'node:path'
+import { createRequire } from 'node:module'
 import { ConfigSchema, type Config } from './schema'
 import type { ZodError } from 'zod'
 
@@ -105,16 +106,38 @@ async function loadConfigFile(filepath: string): Promise<unknown> {
  * Load TypeScript or JavaScript config
  */
 async function loadTsOrJsConfig(filepath: string): Promise<unknown> {
-  // For TypeScript files, we need to use a bundler or ts-node
-  // For now, we'll use dynamic import which requires the file to be already transpiled
-  // In production, users would use tsx or similar to run their config
+  const ext = extname(filepath)
 
   try {
-    const fileUrl = pathToFileURL(filepath).href
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const module = await import(fileUrl)
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
-    return module.default || module
+    // For .mjs/.js files, use native ESM import
+    if (ext === '.mjs' || ext === '.js') {
+      const fileUrl = pathToFileURL(filepath).href
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const module = await import(fileUrl)
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-return
+      return module.default || module
+    }
+
+    // For .ts/.mts files, use jiti for on-the-fly transpilation
+    if (ext === '.ts' || ext === '.mts') {
+      // Dynamic import jiti to avoid bundling issues
+      const require = createRequire(import.meta.url)
+      // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
+      const createJiti = require('jiti')
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+      const jiti = createJiti(dirname(filepath), {
+        interopDefault: true,
+        esmResolve: true,
+      })
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+      const config = jiti(filepath)
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+      return config.default || config
+    }
+
+    throw new Error(`Unsupported file extension: ${ext}`)
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(
