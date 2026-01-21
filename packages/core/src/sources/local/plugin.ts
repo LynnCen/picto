@@ -5,7 +5,7 @@
 
 import { readFile } from 'node:fs/promises'
 import { resolve, relative, parse, dirname } from 'node:path'
-import { glob } from 'fast-glob'
+import fg from 'fast-glob'
 import type { SourcePlugin, IconMetadata } from '@picto/types'
 import type { Logger } from '../../logger'
 import type { LocalSourceConfig } from '../../config'
@@ -76,7 +76,7 @@ export class LocalSourcePlugin implements SourcePlugin {
     this.logger?.debug(`Pattern: ${pattern}`)
 
     try {
-      const files = await glob(pattern, {
+      const files = await fg(pattern, {
         cwd: baseDir,
         absolute: true,
         onlyFiles: true,
