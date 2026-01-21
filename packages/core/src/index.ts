@@ -34,6 +34,13 @@ export * from './cache'
 export * from './generators/react'
 export * from './generators/vue'
 export * from './generators/svg'
+export * from './generators/web-components'
+
+// Export watch
+export * from './watch'
+
+// Export utils
+export * from './utils/debounce'
 
 // Export utilities
 export * from './generators/utils/naming'

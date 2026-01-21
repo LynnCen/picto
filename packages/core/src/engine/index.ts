@@ -16,6 +16,7 @@ import { DeduplicatorPlugin } from '../processors/deduplicator'
 import { ReactGeneratorPlugin } from '../generators/react'
 import { VueGeneratorPlugin } from '../generators/vue'
 import { SVGGeneratorPlugin } from '../generators/svg'
+import { WebComponentsGeneratorPlugin } from '../generators/web-components'
 import { CacheManager, ChangeDetector } from '../cache'
 import type { GeneratedFile } from '@picto/types'
 
@@ -132,8 +133,16 @@ export class PictoEngine {
           this.logger
         )
         this.pluginManager.register(plugin)
+      } else if (outputConfig.type === 'web-components') {
+        const plugin = new WebComponentsGeneratorPlugin({
+          ...outputConfig.options,
+          dir: outputConfig.dir,
+          logger: this.logger,
+          naming: this.config.naming,
+        })
+        this.pluginManager.register(plugin)
       }
-      // TODO: Add more generator plugins
+      // TODO: Add more generator plugins (font, json, etc.)
     }
 
     // Initialize all plugins
