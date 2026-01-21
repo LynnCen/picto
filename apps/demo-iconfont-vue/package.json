@@ -1,0 +1,16 @@
+{
+  "name": "demo-iconfont-vue",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Demo: Iconfont to Vue Components",
+  "type": "module",
+  "scripts": {
+    "pull": "picto pull",
+    "dev": "picto dev",
+    "clean": "rm -rf .picto"
+  },
+  "dependencies": {
+    "@picto/cli": "workspace:*",
+    "@picto/core": "workspace:*"
+  }
+}

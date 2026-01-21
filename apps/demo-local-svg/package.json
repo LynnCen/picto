@@ -1,0 +1,16 @@
+{
+  "name": "demo-local-svg",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Demo: Local SVG to Multi-framework Components",
+  "type": "module",
+  "scripts": {
+    "pull": "picto pull",
+    "dev": "picto dev",
+    "clean": "rm -rf .picto"
+  },
+  "dependencies": {
+    "@picto/cli": "workspace:*",
+    "@picto/core": "workspace:*"
+  }
+}

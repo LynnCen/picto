@@ -1,0 +1,20 @@
+{
+  "name": "playground",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Picto playground for testing and development",
+  "type": "module",
+  "scripts": {
+    "init": "picto init",
+    "pull": "picto pull",
+    "dev": "picto dev",
+    "clean": "rm -rf icons .picto"
+  },
+  "dependencies": {
+    "@picto/cli": "workspace:*",
+    "@picto/core": "workspace:*"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.1"
+  }
+}

@@ -1,0 +1,22 @@
+# Picto
+.picto/
+
+# Build output
+dist/
+
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+
+# IDE
+# .vscode/  # Uncomment if you don't want to share VS Code settings
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
