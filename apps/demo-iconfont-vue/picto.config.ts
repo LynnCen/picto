@@ -1,47 +1,28 @@
 import { defineConfig } from '@picto/core'
 
-/**
- * Picto Configuration - Iconfont to Vue Demo
- *
- * This demo shows how to:
- * 1. Pull icons from Iconfont (Alibaba Icon Font)
- * 2. Generate Vue 3 components with Composition API
- * 3. Support TypeScript
- */
 export default defineConfig({
   sources: [
     {
-      type: 'iconfont',
-      // Your Iconfont project ID
-      projectId: 'YOUR_PROJECT_ID',
-      // Optional: Iconfont CSS URL
-      cssUrl: 'https://at.alicdn.com/t/YOUR_PROJECT.css',
-      // Optional: Token for private projects
-      token: process.env.ICONFONT_TOKEN,
+      type: 'figma',
+      url: 'https://www.figma.com/file/lNtZjYrzLjkZohZLP0OVnz/Gaoding-%E5%9B%BE%E6%A0%87%E5%BA%93(%E9%93%BE%E6%8E%A5%E5%89%8D%E7%AB%AF%E9%A1%B9%E7%9B%AE)?node-id=615%3A324',
+      token: '291200-0792e958-bc89-47ab-8a04-12478816ec02',
+      includeComponents: true,
+      includeInstances: false,
+      filters:{
+        categories: ['通用图标'],
+      }
     },
   ],
-
   outputs: [
     {
       type: 'vue',
       dir: './icons',
-      options: {
-        typescript: true,
-        compositionApi: true,
-      },
+
+      options: {},
     },
   ],
-
   naming: {
-    case: 'pascal',
+    case: 'camel',
     prefix: 'Icon',
-  },
-
-  optimization: {
-    svgo: true,
-  },
-
-  cache: {
-    enabled: true,
   },
 })
