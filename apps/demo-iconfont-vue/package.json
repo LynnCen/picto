@@ -6,11 +6,19 @@
   "type": "module",
   "scripts": {
     "pull": "picto pull",
-    "dev": "picto dev",
-    "clean": "rm -rf .picto"
+    "watch": "picto dev",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "clean": "rm -rf .picto dist"
   },
   "dependencies": {
     "@picto/cli": "workspace:*",
-    "@picto/core": "workspace:*"
+    "@picto/core": "workspace:*",
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "vite": "^5.0.8"
   }
 }
