@@ -193,6 +193,7 @@ export class ReactGeneratorPlugin implements GeneratorPlugin {
    * - Converts kebab-case to camelCase (stroke-width -> strokeWidth)
    * - Converts numeric values to JSX expressions (="1.8" -> ={1.8})
    */
+
   private transformSVGToJSX(svgContent: string): string {
     // Step 1: Remove Figma-specific attributes
     let result = this.removeFigmaAttributes(svgContent)
