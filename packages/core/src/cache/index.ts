@@ -4,4 +4,3 @@
  */
 
 export * from './manager'
-export * from './change-detector'
