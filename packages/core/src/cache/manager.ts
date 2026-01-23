@@ -265,6 +265,34 @@ export class CacheManager {
   }
 
   /**
+   * Get cache age in seconds
+   */
+  async getCacheAge(sourceKey: string): Promise<number | null> {
+    if (!this.enabled) {
+      return null
+    }
+
+    try {
+      const key = `icons:${sourceKey}`
+      const cachePath = this.getCachePath(key)
+
+      if (!existsSync(cachePath)) {
+        return null
+      }
+
+      const content = await readFile(cachePath, 'utf-8')
+      const entry = JSON.parse(content) as CacheEntry<unknown>
+
+      const now = Date.now()
+      const age = (now - entry.timestamp) / 1000 // Convert to seconds
+
+      return age
+    } catch {
+      return null
+    }
+  }
+
+  /**
    * Get cache path for a key
    */
   private getCachePath(key: string): string {

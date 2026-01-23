@@ -17,7 +17,7 @@ import { ReactGeneratorPlugin } from '../generators/react'
 import { VueGeneratorPlugin } from '../generators/vue'
 import { SVGGeneratorPlugin } from '../generators/svg'
 import { WebComponentsGeneratorPlugin } from '../generators/web-components'
-import { CacheManager, ChangeDetector } from '../cache'
+import { CacheManager } from '../cache'
 import type { GeneratedFile } from '@picto/types'
 
 export interface EngineOptions {
@@ -30,7 +30,6 @@ export class PictoEngine {
   private logger: Logger
   private pluginManager: PluginManager
   private cacheManager: CacheManager
-  private changeDetector: ChangeDetector
 
   constructor(options: EngineOptions) {
     this.config = options.config
@@ -42,7 +41,6 @@ export class PictoEngine {
       ttl: this.config.cache?.ttl,
       logger: this.logger,
     })
-    this.changeDetector = new ChangeDetector(this.logger)
   }
 
   /**
@@ -211,44 +209,41 @@ export class PictoEngine {
     }
 
     // Generate cache key based on source config
-    const cacheKey = `${sourceConfig.type}:${JSON.stringify(sourceConfig)}`
+    const cacheKey = this.generateCacheKey(sourceConfig)
 
     // Try to get from cache first
     const cached = await this.cacheManager.getCachedIcons(cacheKey)
     if (cached) {
-      this.logger.info(`Using cached icons for ${sourceConfig.type} (${cached.length} icons)`)
+      // Check if cache is still valid (within TTL)
+      const cacheAge = await this.getCacheAge(cacheKey)
+      const ttl = this.config.cache?.ttl || 3600
 
-      // Fetch fresh icons in background for comparison
-      try {
-        const fresh = await plugin.fetch({})
-
-        // Detect changes
-        const changes = this.changeDetector.detectChanges(cached, fresh)
-
-        if (this.changeDetector.shouldUseIncremental(changes)) {
-          this.logger.info('Using incremental update')
-          // Cache the fresh icons for next time
-          await this.cacheManager.cacheIcons(cacheKey, fresh)
-          // Return only changed icons (for now return all, incremental generation can be optimized later)
-          return fresh
-        } else {
-          this.logger.info('Too many changes, using full update')
-          await this.cacheManager.cacheIcons(cacheKey, fresh)
-          return fresh
-        }
-      } catch (error) {
-        this.logger.warn('Failed to fetch fresh icons, using cached version')
+      if (cacheAge !== null && cacheAge < ttl) {
+        this.logger.info(
+          `Using cached icons for ${sourceConfig.type} (${cached.length} icons, age: ${Math.round(cacheAge)}s)`
+        )
         return cached
       }
+
+      this.logger.info(`Cache expired (age: ${cacheAge}s, ttl: ${ttl}s), refreshing...`)
     }
 
-    // No cache, fetch fresh
+    // No cache or cache expired, fetch fresh
     try {
+      this.logger.info(`Fetching icons from ${sourceConfig.type}...`)
       const icons = await plugin.fetch({})
       // Cache the results
       await this.cacheManager.cacheIcons(cacheKey, icons)
       return icons
     } catch (error) {
+      // If fetch fails but we have cached data, use it as fallback
+      if (cached) {
+        this.logger.warn(
+          `Failed to fetch fresh icons, using cached version: ${(error as Error).message}`
+        )
+        return cached
+      }
+
       this.logger.error(`Failed to fetch from ${sourceConfig.type}: ${(error as Error).message}`)
       return []
     }
@@ -308,5 +303,76 @@ export class PictoEngine {
    */
   getLogger(): Logger {
     return this.logger
+  }
+
+  /**
+   * Generate cache key from source config
+   * Uses a short hash to avoid filename length issues
+   */
+  private generateCacheKey(sourceConfig: Config['sources'][0]): string {
+    const { type } = sourceConfig
+
+    // Extract key fields based on source type
+    let keyData: Record<string, unknown> = { type }
+
+    if (type === 'figma') {
+      const figmaConfig = sourceConfig as Config['sources'][0] & { type: 'figma' }
+      // Extract fileKey from URL instead of storing full URL
+      const fileKey = this.extractFileKey(figmaConfig.url)
+      keyData = {
+        type,
+        fileKey,
+        nodeIds: figmaConfig.nodeIds,
+        filters: figmaConfig.filters,
+      }
+    } else if (type === 'iconfont') {
+      const iconfontConfig = sourceConfig as Config['sources'][0] & { type: 'iconfont' }
+      keyData = {
+        type,
+        projectId: iconfontConfig.projectId,
+        filters: iconfontConfig.filters,
+      }
+    } else if (type === 'local') {
+      const localConfig = sourceConfig as Config['sources'][0] & { type: 'local' }
+      keyData = {
+        type,
+        dir: localConfig.dir,
+        pattern: localConfig.pattern,
+      }
+    }
+
+    // Generate short hash
+    const hash = this.hashObject(keyData)
+
+    return `${type}:${hash}`
+  }
+
+  /**
+   * Extract Figma file key from URL
+   */
+  private extractFileKey(url: string): string | null {
+    const match = url.match(/figma\.com\/(file|design)\/([a-zA-Z0-9]+)/)
+    return match && match[2] ? match[2] : null
+  }
+
+  /**
+   * Generate a short hash from an object
+   */
+  private hashObject(obj: Record<string, unknown>): string {
+    const str = JSON.stringify(obj)
+    let hash = 0
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i)
+      hash = (hash << 5) - hash + char
+      hash = hash & hash // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(36).slice(0, 12)
+  }
+
+  /**
+   * Get cache age in seconds
+   */
+  private async getCacheAge(cacheKey: string): Promise<number | null> {
+    return await this.cacheManager.getCacheAge(cacheKey)
   }
 }
