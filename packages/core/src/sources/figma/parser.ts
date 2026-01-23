@@ -47,18 +47,21 @@ export class FigmaParser {
     } = options
 
     this.logger?.info('Parsing Figma file...')
+    if (options.categories && options.categories.length > 0) {
+      this.logger?.info(`Filtering by categories: ${options.categories.join(', ')}`)
+    }
 
     const icons: ParsedIcon[] = []
     const componentMap = new Map<string, FigmaComponent>()
 
-    // Build component map for quick lookup
-    Object.entries(file.components || {}).forEach(([key, component]) => {
-      componentMap.set(key, component)
+    // Build component map for quick lookup (use nodeId as key)
+    Object.entries(file.components || {}).forEach(([nodeId, component]) => {
+      componentMap.set(nodeId, component)
     })
 
-    // Traverse document tree
-    this.traverseNode(file.document, node => {
-      const icon = this.parseNode(node, componentMap, {
+    // Traverse document tree with parent tracking
+    this.traverseNode(file.document, [], (node, parents) => {
+      const icon = this.parseNode(node, parents, componentMap, {
         includeComponents,
         includeComponentSets,
         includeInstances,
@@ -74,14 +77,24 @@ export class FigmaParser {
   }
 
   /**
-   * Recursively traverse node tree
+   * Recursively traverse node tree with parent tracking
    */
-  private traverseNode(node: FigmaNode, callback: (node: FigmaNode) => void): void {
-    callback(node)
+  private traverseNode(
+    node: FigmaNode,
+    parents: FigmaNode[],
+    callback: (node: FigmaNode, parents: FigmaNode[]) => void
+  ): void {
+    // Skip nodes that start with . (hidden)
+    if (node.name && node.name.startsWith('.')) {
+      return
+    }
+
+    callback(node, parents)
 
     if (node.children) {
       for (const child of node.children) {
-        this.traverseNode(child, callback)
+        // Accumulate parents: current node + previous parents
+        this.traverseNode(child, [node, ...parents], callback)
       }
     }
   }
@@ -91,6 +104,7 @@ export class FigmaParser {
    */
   private parseNode(
     node: FigmaNode,
+    parents: FigmaNode[],
     componentMap: Map<string, FigmaComponent>,
     options: {
       includeComponents: boolean
@@ -122,11 +136,11 @@ export class FigmaParser {
       return null
     }
 
-    // Parse name and extract category
-    const { displayName, category } = this.parseName(node.name)
+    // Parse name and extract category (with parent information)
+    const { displayName, category } = this.parseName(node.name, parents)
 
-    // Get component metadata
-    const component = Array.from(componentMap.values()).find(c => c.key === node.id)
+    // Get component metadata (use direct lookup by nodeId)
+    const component = componentMap.get(node.id)
 
     return {
       id: node.id,
@@ -143,17 +157,37 @@ export class FigmaParser {
 
   /**
    * Parse node name to extract display name and category
-   * Supports formats like: "Category/IconName", "icon-name", "IconName"
+   * Category is the top-level FRAME directly under CANVAS
    */
-  private parseName(name: string): { displayName: string; category?: string } {
-    // Handle category separator
-    if (name.includes('/')) {
-      const parts = name.split('/')
-      const category = parts.slice(0, -1).join('/')
-      const displayName = parts[parts.length - 1] || name
-      return { displayName: displayName.trim(), category: category.trim() }
+  private parseName(
+    name: string,
+    parents: FigmaNode[] = []
+  ): { displayName: string; category?: string } {
+    // Find the top-level FRAME/GROUP (the one whose parent is CANVAS)
+    // Parents array is ordered: [nearest parent, ..., furthest parent]
+    // So we search from the end to find the top-level organizational node
+    for (let i = parents.length - 1; i >= 0; i--) {
+      const parent = parents[i]
+      const grandparent = parents[i + 1]
+
+      // Check if this is a top-level FRAME/GROUP under CANVAS
+      if (
+        (parent?.type === 'FRAME' || parent?.type === 'GROUP') &&
+        grandparent?.type === 'CANVAS'
+      ) {
+        const categoryName = parent.name?.trim()
+
+        // Skip hidden nodes
+        if (categoryName && !categoryName.startsWith('.') && !categoryName.startsWith('_')) {
+          return {
+            displayName: name.trim(),
+            category: categoryName,
+          }
+        }
+      }
     }
 
+    // No category found
     return { displayName: name.trim() }
   }
 
@@ -199,12 +233,20 @@ export class FigmaParser {
   private shouldIncludeIcon(icon: ParsedIcon, options: ParserOptions): boolean {
     // Name pattern filter
     if (options.namePattern && !options.namePattern.test(icon.name)) {
+      this.logger?.debug(`Icon "${icon.name}" filtered out by namePattern`)
       return false
     }
 
     // Category filter
     if (options.categories && options.categories.length > 0) {
-      if (!icon.category || !options.categories.includes(icon.category)) {
+      if (!icon.category) {
+        this.logger?.debug(`Icon "${icon.name}" has no category, filtered out`)
+        return false
+      }
+      if (!options.categories.includes(icon.category)) {
+        this.logger?.debug(
+          `Icon "${icon.name}" category "${icon.category}" not in allowed categories [${options.categories.join(', ')}]`
+        )
         return false
       }
     }
